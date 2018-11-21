@@ -96,7 +96,7 @@ namespace VirtualBrightPlayz.SCPSL.Mod11
             {
                 Transform room = hczrooms.GetChild(i);
                 Vector3 pos = new Vector3(hczrooms.position.x, room.position.y, hczrooms.position.y);
-                if (room.name.StartsWith("Root_") && Vector3.Distance(pos, room.position) < MinDist && !room.name.Contains("Tesla"))
+                if (room.name.StartsWith("Root_") && Vector3.Distance(pos, room.position) < MinDist && !room.name.Contains("Tesla") && !room.name.Contains("Room3ar"))
                     rooms.Add(room);
             }
             for (int i = 0; i < ezrooms.childCount; i++)
