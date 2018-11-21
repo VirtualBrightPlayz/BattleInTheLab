@@ -4,6 +4,8 @@
 
 It's literally just Battle Royale for SCP: Secret Laboratory.
 
+REQUIRED: https://github.com/ShingekiNoRex/SCPSL-Gamemode-Manager
+
 # Gameplay
 
 You will spawn as a Class-D in a random room around the facility.
