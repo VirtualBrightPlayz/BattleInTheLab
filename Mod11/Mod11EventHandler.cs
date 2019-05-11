@@ -354,6 +354,14 @@ namespace VirtualBrightPlayz.SCPSL.Mod11
             {
                 ev.Damage = 0;
             }
+            if (ev.Attacker.TeamRole.Role == Role.CHAOS_INSURGENCY && ev.Player.TeamRole.Team == Smod2.API.Team.SCP)
+            {
+                ev.Damage = 0;
+            }
+            if (ev.Player.TeamRole.Team == Smod2.API.Team.SCP && ev.Player.TeamRole.Team == Smod2.API.Team.SCP)
+            {
+                ev.Damage = 0;
+            }
         }
 
         void IEventHandlerRoundRestart.OnRoundRestart(RoundRestartEvent ev)
