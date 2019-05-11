@@ -2,6 +2,7 @@
 using Smod2.API;
 using Smod2.EventHandlers;
 using Smod2.Events;
+using Smod2.EventSystem.Events;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
@@ -10,13 +11,15 @@ using UnityEngine.Networking;
 
 namespace VirtualBrightPlayz.SCPSL.Mod11
 {
-    internal class Mod11EventHandler : IEventHandlerCheckEscape, IEventHandlerSpawn, IEventHandlerRoundStart, IEventHandlerLCZDecontaminate, IEventHandlerRoundEnd, IEventHandlerCheckRoundEnd, IEventHandlerPlayerPickupItem, IEventHandlerSetRole, IEventHandlerUpdate, IEventHandlerShoot, IEventHandlerPlayerJoin, IEventHandlerPlayerHurt
+    internal class Mod11EventHandler : IEventHandlerCheckEscape, IEventHandlerInitialAssignTeam, IEventHandlerTeamRespawn, IEventHandlerRoundRestart, IEventHandlerSpawn, IEventHandlerRoundStart, IEventHandlerLCZDecontaminate, IEventHandlerRoundEnd, IEventHandlerCheckRoundEnd, IEventHandlerPlayerPickupItem, IEventHandlerSetRole, IEventHandlerUpdate, IEventHandlerShoot, IEventHandlerPlayerJoin, IEventHandlerPlayerHurt
     {
         private Mod11 mod11;
         public List<Transform> rooms;
         public Dictionary<string, int> ammo9;
         public Dictionary<string, int> ammo7;
         public Dictionary<string, int> ammo5;
+        public List<string> spawningPlayers;
+        public List<string> tpPlayers;
         public List<string> players;
         public int[] items;
         public bool hasended;
@@ -28,6 +31,8 @@ namespace VirtualBrightPlayz.SCPSL.Mod11
             this.mod11 = mod11;
             items = new int[] { };
             rooms = new List<Transform>();
+            spawningPlayers = new List<string>();
+            tpPlayers = new List<string>();
             items = ConfigManager.Manager.Config.GetIntListValue("battleroyale_weapons", new int[] { (int)ItemType.COM15, (int)ItemType.FRAG_GRENADE, (int)ItemType.MP4, (int)ItemType.P90 });
         }
 
@@ -71,7 +76,6 @@ namespace VirtualBrightPlayz.SCPSL.Mod11
 
         void IEventHandlerRoundStart.OnRoundStart(RoundStartEvent ev)
         {
-            roundstarted = true;
             hasended = false;
             //ammo5 = new Dictionary<string, int>();
             //ammo7 = new Dictionary<string, int>();
@@ -82,11 +86,6 @@ namespace VirtualBrightPlayz.SCPSL.Mod11
             //    ammo7.Add(player.SteamId, player.GetAmmo(AmmoType.DROPPED_7));
             //    ammo9.Add(player.SteamId, player.GetAmmo(AmmoType.DROPPED_9));
             //}
-            GameObject.FindObjectOfType<Broadcast>().CallRpcAddElement("<size=50>Welcome Subject D-[Redacted]</size>", 3, true);
-            GameObject.FindObjectOfType<Broadcast>().CallRpcAddElement("<size=20><color=#fca714>You have been selected to fight against other Class-D Personnel.\n" +
-                "This is a fight to the death, and you must be the last survivor in order to be released from the facility.\n" +
-                "Supplies have been placed around the facility, and are free to use.</color></size>", 10, true);
-            GameObject.FindObjectOfType<Broadcast>().CallRpcAddElement("<size=100>Good Luck!</size>", 2, true);
             if (rooms == null || true)
             {
                 GetRooms();
@@ -100,6 +99,20 @@ namespace VirtualBrightPlayz.SCPSL.Mod11
                 //plugin.Info(rooms[roomnumber].name);
                 player.Teleport(new Smod2.API.Vector(roompos.x, roompos.y + 2f, roompos.z));
                 player.GiveItem(Smod2.API.ItemType.ZONE_MANAGER_KEYCARD);
+                if (player.TeamRole.Team == Smod2.API.Team.CLASSD)
+                {
+                    GameObject.FindObjectOfType<Broadcast>().CallTargetAddElement(((GameObject)player.GetGameObject()).GetComponent<NetworkIdentity>().connectionToClient, "<size=50><color=#fca714>Welcome Subject D-[Redacted]</color></size>", 3, true);
+                    GameObject.FindObjectOfType<Broadcast>().CallTargetAddElement(((GameObject)player.GetGameObject()).GetComponent<NetworkIdentity>().connectionToClient, "<size=20><color=#fca714>You have been selected to fight against other Class-D Personnel and SCP subjects.\n" +
+                        "This is a fight to the death, and you must be the last survivor in order to be released from the facility.\n" +
+                        "Supplies have been placed around the facility, and are free to use.</color></size>", 10, true);
+                    GameObject.FindObjectOfType<Broadcast>().CallTargetAddElement(((GameObject)player.GetGameObject()).GetComponent<NetworkIdentity>().connectionToClient, "<size=100><color=#fca714>Good Luck!</color></size>", 2, true);
+                }
+                if (player.TeamRole.Team == Smod2.API.Team.SCP)
+                {
+                    GameObject.FindObjectOfType<Broadcast>().CallTargetAddElement(((GameObject)player.GetGameObject()).GetComponent<NetworkIdentity>().connectionToClient, "<size=50><color=#fca714>Welcome Subject SCP-[Redacted]</color></size>", 3, true);
+                    GameObject.FindObjectOfType<Broadcast>().CallTargetAddElement(((GameObject)player.GetGameObject()).GetComponent<NetworkIdentity>().connectionToClient, "<size=20><color=#fca714>You have breached containment. Just kill the Class-D Personnel.</color></size>", 10, true);
+                    GameObject.FindObjectOfType<Broadcast>().CallTargetAddElement(((GameObject)player.GetGameObject()).GetComponent<NetworkIdentity>().connectionToClient, "<size=100><color=#fca714>Good Luck!</color></size>", 2, true);
+                }
                 players.Add(player.SteamId);
             }
             for (int i = 0; i < rooms.Count / 3; i++)
@@ -122,6 +135,7 @@ namespace VirtualBrightPlayz.SCPSL.Mod11
                 //mod11.Server.Map.SpawnItem(Smod2.API.ItemType.DROPPED_7, roompos41, Vector.Zero);
                 //mod11.Server.Map.SpawnItem(Smod2.API.ItemType.DROPPED_9, roompos41, Vector.Zero);
             }
+            roundstarted = true;
         }
 
         void IEventHandlerLCZDecontaminate.OnDecontaminate()
@@ -131,10 +145,35 @@ namespace VirtualBrightPlayz.SCPSL.Mod11
 
         void IEventHandlerSpawn.OnSpawn(PlayerSpawnEvent ev)
         {
-            /*if (rooms == null)
+            if (tpPlayers.Contains(ev.Player.SteamId))
             {
-                GetRooms();
-            }*/
+                tpPlayers.Remove(ev.Player.SteamId);
+                ev.SpawnPos = mod11.Server.Map.GetRandomSpawnPoint(Role.CHAOS_INSURGENCY);
+            }
+            return;
+            if (spawningPlayers.Contains(ev.Player.SteamId) || (ev.Player.TeamRole.Role == Role.CLASSD || ev.Player.TeamRole.Role == Role.CHAOS_INSURGENCY || ev.Player.TeamRole.Role == Role.SCP_049 || ev.Player.TeamRole.Role == Role.SCP_096 || ev.Player.TeamRole.Role == Role.SCP_106 || ev.Player.TeamRole.Role == Role.SCP_173 || ev.Player.TeamRole.Role == Role.SPECTATOR)) // && (ev.Role == Role.CLASSD || ev.TeamRole.Team == Smod2.API.Team.SCP || ev.TeamRole.Team == Smod2.API.Team.NONE || ev.TeamRole.Team == Smod2.API.Team.TUTORIAL || ev.TeamRole.Team == Smod2.API.Team.SPECTATOR)
+            {
+                if (spawningPlayers.Contains(ev.Player.SteamId))
+                {
+                    spawningPlayers.Remove(ev.Player.SteamId);
+                }
+            }
+            else
+            {
+                spawningPlayers.Add(ev.Player.SteamId);
+                List<Role> roles = new List<Role>() { Role.SCP_173, Role.SCP_096, Role.SCP_106, Role.SCP_049 };
+                if (UnityEngine.Random.Range(0, 1) == 0)
+                {
+                    ev.Player.ChangeRole(Role.CHAOS_INSURGENCY);
+                    ev.Player.GiveItem(ItemType.O5_LEVEL_KEYCARD);
+                }
+                else
+                {
+                    ev.Player.ChangeRole(roles[UnityEngine.Random.Range(0, roles.Count - 1)]);
+                    ev.Player.Teleport(mod11.Server.Map.GetRandomSpawnPoint(Role.CHAOS_INSURGENCY));
+                }
+                GameObject.FindObjectOfType<Broadcast>().CallTargetAddElement(((GameObject)ev.Player.GetGameObject()).GetComponent<NetworkIdentity>().connectionToClient, "<color=#00ff00>Kill the Class-D Personnel, or not.</color>", 5, true);
+            }
         }
 
         void IEventHandlerRoundEnd.OnRoundEnd(RoundEndEvent ev)
@@ -146,12 +185,15 @@ namespace VirtualBrightPlayz.SCPSL.Mod11
         void IEventHandlerCheckRoundEnd.OnCheckRoundEnd(CheckRoundEndEvent ev)
         {
             List<Role> roles = new List<Role>();
+            List<Role> rolesd = new List<Role>();
             foreach (Player player in mod11.Server.GetPlayers())
             {
                 if (player.TeamRole.Role == Role.CLASSD)
+                    rolesd.Add(player.TeamRole.Role);
+                if (player.TeamRole.Role == Role.CLASSD || player.TeamRole.Team == Smod2.API.Team.SCP)
                     roles.Add(player.TeamRole.Role);
             }
-            if (roles.Count > 1 && !hasended)
+            if (!hasended)
             {
                 ev.Status = ROUND_END_STATUS.ON_GOING;
             }
@@ -159,7 +201,7 @@ namespace VirtualBrightPlayz.SCPSL.Mod11
             {
                 //ev.Status = ROUND_END_STATUS.ON_GOING;
                 ev.Status = ROUND_END_STATUS.CI_VICTORY;
-                ev.Round.EndRound();
+                //ev.Round.EndRound();
             }
         }
 
@@ -194,12 +236,21 @@ namespace VirtualBrightPlayz.SCPSL.Mod11
 
         void IEventHandlerSetRole.OnSetRole(PlayerSetRoleEvent ev)
         {
-            if (ev.Role == Role.CLASSD || ev.TeamRole.Team == Smod2.API.Team.SCP || ev.TeamRole.Team == Smod2.API.Team.NONE || ev.TeamRole.Team == Smod2.API.Team.TUTORIAL || ev.TeamRole.Team == Smod2.API.Team.SPECTATOR)
-            { }
-            else
+            if (spawningPlayers.Contains(ev.Player.SteamId))
             {
-                ev.Player.ChangeRole(Role.CHAOS_INSURGENCY);
-                ev.Items.Add(ItemType.O5_LEVEL_KEYCARD);
+                spawningPlayers.Remove(ev.Player.SteamId);
+                List<Role> roles = new List<Role>() { Role.SCP_173, Role.SCP_096, Role.SCP_106, Role.SCP_049 };
+                if (UnityEngine.Random.Range(0, 2) != 0)
+                {
+                    ev.Role = (Role.CHAOS_INSURGENCY);
+                    ev.Items.Add(ItemType.O5_LEVEL_KEYCARD);
+                }
+                else
+                {
+                    ev.Role = (roles[UnityEngine.Random.Range(0, roles.Count)]);
+                    tpPlayers.Add(ev.Player.SteamId);
+                    ev.Player.Teleport(mod11.Server.Map.GetRandomSpawnPoint(Role.CHAOS_INSURGENCY));
+                }
                 GameObject.FindObjectOfType<Broadcast>().CallTargetAddElement(((GameObject)ev.Player.GetGameObject()).GetComponent<NetworkIdentity>().connectionToClient, "<color=#00ff00>Kill the Class-D Personnel, or not.</color>", 5, true);
             }
         }
@@ -207,30 +258,35 @@ namespace VirtualBrightPlayz.SCPSL.Mod11
         void IEventHandlerUpdate.OnUpdate(UpdateEvent ev)
         {
             List<string> roles = new List<string>();
+            List<string> rolesd = new List<string>();
             foreach (Player player in mod11.Server.GetPlayers())
             {
                 if (player.TeamRole.Role == Role.CLASSD)
+                    rolesd.Add(player.Name);
+                if (player.TeamRole.Role == Role.CLASSD || player.TeamRole.Team == Smod2.API.Team.SCP)
                     roles.Add(player.Name);
             }
-            if (roles.Count == 2 && !hasended && roundstarted && !GameObject.FindObjectOfType<AlphaWarheadController>().inProgress && !GameObject.FindObjectOfType<AlphaWarheadController>().detonated)
+            if (rolesd.Count == 2 && !hasended && roundstarted && !AlphaWarheadController.host.inProgress && !AlphaWarheadController.host.detonated)
             {
-                GameObject.FindObjectOfType<AlphaWarheadController>().StartDetonation();
+                AlphaWarheadOutsitePanel.nukeside.SetEnabled(true);
+                //AlphaWarheadController.host.NetworktimeToDetonation = 120;
+                AlphaWarheadController.host.StartDetonation();
             }
-            if (roles.Count == 1 && !hasended && roundstarted)
+            else if (rolesd.Count == 1 && !hasended && roundstarted)
             {
-                GameObject.FindObjectOfType<Broadcast>().CallRpcAddElement("<size=70><color=#ff0000>Winner: " + roles[0] + "</color></size>", 10, true);
+                GameObject.FindObjectOfType<Broadcast>().CallRpcAddElement("<size=70><color=#ff0000>Class-D Winner: " + rolesd[0] + "</color></size>", 10, true);
                 foreach (Player player in mod11.Server.GetPlayers())
                 {
-                    player.SendConsoleMessage(roles[0] + " Wins!", "red");
+                    player.SendConsoleMessage(rolesd[0] + " Wins!", "red");
                 }
                 hasended = true;
             }
-            else if (roles.Count < 1 && !hasended && roundstarted)
+            else if (rolesd.Count < 1 && !hasended && roundstarted)
             {
-                GameObject.FindObjectOfType<Broadcast>().CallRpcAddElement("<size=70><color=#ff0000>No one wins.</color></size>", 10, true);
+                GameObject.FindObjectOfType<Broadcast>().CallRpcAddElement("<size=70><color=#ff0000>SCP subjects win</color></size>", 10, true);
                 foreach (Player player in mod11.Server.GetPlayers())
                 {
-                    player.SendConsoleMessage("No one wins.", "red");
+                    player.SendConsoleMessage("SCP subjects win", "red");
                 }
                 hasended = true;
             }
@@ -270,7 +326,7 @@ namespace VirtualBrightPlayz.SCPSL.Mod11
 
         void IEventHandlerPlayerJoin.OnPlayerJoin(PlayerJoinEvent ev)
         {
-            if (players != null)
+            if (players != null && !AlphaWarheadController.host.detonated)
             {
                 if (!players.Contains(ev.Player.SteamId))
                 {
@@ -297,6 +353,58 @@ namespace VirtualBrightPlayz.SCPSL.Mod11
             if (ev.Attacker.TeamRole.Role == Role.CHAOS_INSURGENCY && ev.Player.TeamRole.Role == Role.CHAOS_INSURGENCY)
             {
                 ev.Damage = 0;
+            }
+        }
+
+        void IEventHandlerRoundRestart.OnRoundRestart(RoundRestartEvent ev)
+        {
+            roundstarted = false;
+            spawningPlayers = new List<string>();
+            tpPlayers = new List<string>();
+        }
+
+
+
+        void IEventHandlerTeamRespawn.OnTeamRespawn(TeamRespawnEvent ev)
+        {
+            ev.SpawnChaos = true;
+            foreach (Player player in ev.PlayerList)
+            {
+                spawningPlayers.Add(player.SteamId);
+                /*List<Role> roles = new List<Role>() { Role.SCP_173, Role.SCP_096, Role.SCP_106, Role.SCP_049 };
+                if (UnityEngine.Random.Range(0, 2) != 0)
+                {
+                    player.ChangeRole(Role.CHAOS_INSURGENCY);
+                    player.GiveItem(ItemType.O5_LEVEL_KEYCARD);
+                }
+                else
+                {
+                    player.ChangeRole(roles[UnityEngine.Random.Range(0, roles.Count)]);
+                    player.Teleport(mod11.Server.Map.GetRandomSpawnPoint(Role.CHAOS_INSURGENCY));
+                }
+                GameObject.FindObjectOfType<Broadcast>().CallTargetAddElement(((GameObject)player.GetGameObject()).GetComponent<NetworkIdentity>().connectionToClient, "<color=#00ff00>Kill the Class-D Personnel, or not.</color>", 5, true);
+                */
+            }
+        }
+
+        void IEventHandlerInitialAssignTeam.OnAssignTeam(PlayerInitialAssignTeamEvent ev)
+        {
+            if (ev.Team == Smod2.API.Team.CHAOS_INSURGENCY || ev.Team == Smod2.API.Team.SCP)
+            {
+                spawningPlayers.Add(ev.Player.SteamId);
+                /*List<Role> roles = new List<Role>() { Role.SCP_173, Role.SCP_096, Role.SCP_106, Role.SCP_049 };
+                if (UnityEngine.Random.Range(0, 2) != 0)
+                {
+                    ev.Player.ChangeRole(Role.CHAOS_INSURGENCY);
+                    ev.Player.GiveItem(ItemType.O5_LEVEL_KEYCARD);
+                }
+                else
+                {
+                    ev.Player.ChangeRole(roles[UnityEngine.Random.Range(0, roles.Count)]);
+                    ev.Player.Teleport(mod11.Server.Map.GetRandomSpawnPoint(Role.CHAOS_INSURGENCY));
+                }
+                GameObject.FindObjectOfType<Broadcast>().CallTargetAddElement(((GameObject)ev.Player.GetGameObject()).GetComponent<NetworkIdentity>().connectionToClient, "<color=#00ff00>Kill the Class-D Personnel, or not.</color>", 5, true);
+                */
             }
         }
     }

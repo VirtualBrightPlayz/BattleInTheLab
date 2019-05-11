@@ -103,7 +103,6 @@ D:\Users\mcLC2\Documents\GitHub\BattleInTheLab\Mod11\bin\Debug\UnityEngine.XRMod
 D:\Users\mcLC2\Documents\GitHub\BattleInTheLab\Mod11\obj\Debug\Mod11.csproj.CopyComplete
 D:\Users\mcLC2\Documents\GitHub\BattleInTheLab\Mod11\bin\Debug\Mod11.pdb
 D:\Users\mcLC2\Documents\GitHub\BattleInTheLab\Mod11\bin\Debug\Assembly-CSharp.dll
-D:\Users\mcLC2\Documents\GitHub\BattleInTheLab\Mod11\bin\Debug\GamemodeManager.dll
 D:\Users\mcLC2\Documents\GitHub\BattleInTheLab\Mod11\bin\Debug\Smod2.dll
 D:\Users\mcLC2\Documents\GitHub\BattleInTheLab\Mod11\obj\Debug\Mod11.dll
 D:\Users\mcLC2\Documents\GitHub\BattleInTheLab\Mod11\obj\Debug\Mod11.pdb
