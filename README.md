@@ -4,7 +4,7 @@
 
 It's literally just Battle Royale for SCP: Secret Laboratory.
 
-REQUIRED for v1.1.1 and ealier: https://github.com/ShingekiNoRex/SCPSL-Gamemode-Manager
+REQUIRED for v1.1.1 and earlier: https://github.com/ShingekiNoRex/SCPSL-Gamemode-Manager
 
 # Gameplay
 
